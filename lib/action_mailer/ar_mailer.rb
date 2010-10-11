@@ -19,6 +19,19 @@ class ActionMailer::Base
   end
 
   ##
+  # Set the email class for successful deliveries.
+  #
+  @@email_backup_class_name = 'EmailBackup'
+
+  def self.email_backup_class=(klass)
+    @@email_backup_class_name = klass.to_s
+  end
+
+  def self.email_backup_class
+    @@email_backup_class_name.constantize
+  end
+
+  ##
   # Adds +mail+ to the Email table.  Only the first From address for +mail+ is
   # used.
 

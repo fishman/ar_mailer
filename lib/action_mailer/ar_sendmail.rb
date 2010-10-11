@@ -42,7 +42,7 @@ class ActionMailer::ARSendmail
   ##
   # The version of ActionMailer::ARSendmail you are running.
 
-  VERSION = '2.1.8'
+  VERSION = '2.1.9'
 
   ##
   # Maximum number of times authentication will be consecutively retried
@@ -377,6 +377,8 @@ class ActionMailer::ARSendmail
         email = emails.shift
         begin
           res = session.send_message email.mail, email.from, email.to
+          # create a copy of the sent mail in the emailbackup model
+          ActionMailer::Base.email_backup_class.create :mail => email.mail, :to => email.to, :from => email.from
           email.destroy
           log "sent email %011d from %s to %s: %p" %
                 [email.id, email.from, email.to, res]
