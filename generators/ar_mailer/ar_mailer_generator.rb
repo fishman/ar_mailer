@@ -1,30 +1,31 @@
-class ArMailerGenerator < Rails::Generator::NamedBase
+require 'rails/generators'
+require 'rails/generators/migration'
 
-  def initialize(runtime_args, runtime_options = {})
-    runtime_args.unshift('Email') if runtime_args.empty?
-    super
+class ArMailerGenerator < Rails::Generators::NamedBase
+  include Rails::Generators::Migration
+  
+  def create_ar_mailer_files
+    self.class.check_class_collision class_name
+    template('ar_mailer.rb', 'config/initializers/ar_mailer.rb')
+    template('model.rb', File.join('app/models', class_path, "#{file_name}.rb"))
+    migration_template 'migration.rb', "db/migrate/create_#{file_path.gsub(/\//, '_').pluralize}.rb"
   end
-
-  def manifest
-    record do |m|
-      m.class_collisions class_name
-      
-      m.template 'model.rb', File.join('app/models', class_path, "#{file_name}.rb")
-      m.template 'model.rb', File.join('app/models', 'EmailBackup', "email_backup.rb")
-
-      m.migration_template 'migration.rb', 'db/migrate', :assigns => {
-        :migration_name => "Create#{class_name.pluralize.gsub(/::/, '')}"
-      }, :migration_file_name => "create_#{file_path.gsub(/\//, '_').pluralize}"
-
-      m.migration_template 'migration.rb', 'db/migrate', :assigns => {
-        :migration_name => "Create#{'EmailBackup'.pluralize.gsub(/::/, '')}"
-      }, :migration_file_name => "create_#{'email_backup'.gsub(/\//, '_').pluralize}"
-    end
+  
+  def self.source_root
+    File.join(File.dirname(__FILE__), 'templates')
   end
-
-  protected
-    def banner
-      "Usage: #{$0} #{spec.name} EmailModelName (default: Email)"
-    end
-
+  
+  # Implement the required interface for Rails::Generators::Migration.
+  # taken from http://github.com/rails/rails/blob/master/activerecord/lib/generators/active_record.rb
+  def self.next_migration_number(dirname)
+    if ActiveRecord::Base.timestamped_migrations
+      Time.now.utc.strftime("%Y%m%d%H%M%S")
+    else
+     "%.3d" % (current_migration_number(dirname) + 1)
+   end
+  end
+  
+  def self.banner
+    "Usage: #{$0} ar_mailer EmailModelName (default: Email)"
+  end  
 end

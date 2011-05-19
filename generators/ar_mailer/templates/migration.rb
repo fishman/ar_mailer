@@ -1,4 +1,4 @@
-class <%= migration_name %> < ActiveRecord::Migration
+class <%= migration_class_name.gsub(/::/, '') %> < ActiveRecord::Migration
   def self.up
     create_table :<%= table_name %> do |t|
       t.column :from, :string

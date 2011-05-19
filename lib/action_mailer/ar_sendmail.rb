@@ -35,14 +35,14 @@ end
 # * --daemon
 # * --mailq
 
-module ActionMailer; end
+module ArMailer; end
 
-class ActionMailer::ARSendmail
+class ArMailer::ARSendmail
 
   ##
   # The version of ActionMailer::ARSendmail you are running.
 
-  VERSION = '2.1.9'
+  VERSION = '2.1.8'
 
   ##
   # Maximum number of times authentication will be consecutively retried
@@ -91,6 +91,17 @@ class ActionMailer::ARSendmail
   end
 
   ##
+  # Get email class
+  
+  def self.email_class
+    ActionMailer::Base.active_record_settings[:email_class]
+  end
+
+  def self.email_backup_class
+    ActionMailer::Base.active_record_settings[:email_backup_class]
+  end
+  
+  ##
   # Prints a list of unsent emails and the last delivery attempt, if any.
   #
   # If ActiveRecord::Timestamp is not being used the arrival time will not be
@@ -98,7 +109,7 @@ class ActionMailer::ARSendmail
   # to learn how to enable ActiveRecord::Timestamp.
 
   def self.mailq
-    emails = ActionMailer::Base.email_class.find :all
+    emails = self.email_class.find :all
 
     if emails.empty? then
       puts "Mail queue is empty"
@@ -249,8 +260,8 @@ class ActionMailer::ARSendmail
 
     Dir.chdir options[:Chdir] do
       begin
-        require 'config/environment'
-        require 'action_mailer/ar_mailer'
+        require Dir.pwd + '/config/environment'
+        require 'ar_mailer/active_record'
       rescue LoadError
         usage opts, <<-EOF
 #{name} must be run from a Rails application's root to deliver email.
@@ -348,7 +359,7 @@ class ActionMailer::ARSendmail
     return if @max_age == 0
     timeout = Time.now - @max_age
     conditions = ['last_send_attempt > 0 and created_on < ?', timeout]
-    mail = ActionMailer::Base.email_class.destroy_all conditions
+    mail = self.class.email_class.destroy_all conditions
 
     log "expired #{mail.length} emails from the queue"
   end
@@ -377,8 +388,7 @@ class ActionMailer::ARSendmail
         email = emails.shift
         begin
           res = session.send_message email.mail, email.from, email.to
-          # create a copy of the sent mail in the emailbackup model
-          ActionMailer::Base.email_backup_class.create :mail => email.mail, :to => email.to, :from => email.from
+          self.class.email_backup_class.create :mail => email.mail, :to => email.to, :from => email.from
           email.destroy
           log "sent email %011d from %s to %s: %p" %
                 [email.id, email.from, email.to, res]
@@ -428,7 +438,7 @@ class ActionMailer::ARSendmail
   def find_emails
     options = { :conditions => ['last_send_attempt < ?', Time.now.to_i - 300] }
     options[:limit] = batch_size unless batch_size.nil?
-    mail = ActionMailer::Base.email_class.find :all, options
+    mail = self.class.email_class.find :all, options
 
     log "found #{mail.length} emails to send"
     mail
@@ -462,7 +472,7 @@ class ActionMailer::ARSendmail
         cleanup
         emails = find_emails
         deliver(emails) unless emails.empty?
-      rescue ActiveRecord::Transactions::TransactionError
+      rescue
       end
       break if @once
       sleep @delay
